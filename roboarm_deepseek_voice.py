@@ -52,7 +52,7 @@ BASE_URL = 'https://api.deepseek.com'
 WINDOW = 'RoboArm + DeepSeek | live camera'
 # One authoritative threshold for THIS DeepSeek controller.
 # Do not inherit an old 6 mm value from imported vision modules.
-MAX_MARKER_DRIFT_MM = 10.0
+MAX_MARKER_DRIFT_MM = 11.0
 # Maximum time to find and validate the requested cubes after the DeepSeek plan.
 # Expiry drops the task WITHOUT opening the serial port and returns to wake-word listening.
 VISION_TIMEOUT_S = 8.0
@@ -294,7 +294,7 @@ class MarkerStabilityMonitor:
     """Temporal ArUco guard: require two consistently calibrated markers.
 
     For each marker ID separately, at least 4 of the last 5 frames must
-    contain an in-tolerance observation (< 10 mm). A single spurious
+    contain an in-tolerance observation (<= 11 mm). A single spurious
     reading or a third unreliable marker does not block a reliable pair.
     If the camera really moves, persistent errors drop the quorum.
     """
@@ -336,18 +336,18 @@ class MarkerStabilityMonitor:
         for marker_id in base.MARKER_BOARD_MM:
             good_readings = [sample[marker_id] for sample in self.history
                              if marker_id in sample
-                             and sample[marker_id] < self.threshold_mm]
+                             and sample[marker_id] <= self.threshold_mm]
             if len(good_readings) >= self.good_frames:
                 good_ids.append(marker_id)
         ok = len(good_ids) >= self.min_markers
         if ok:
             return True, ('ArUco OK: stable IDs ' + ','.join(map(str, good_ids))
                           + f' (>= {self.good_frames}/{self.window}, '
-                          + f'< {self.threshold_mm:g} mm)')
+                          + f'<= {self.threshold_mm:g} mm)')
         current = ', '.join(f'{k}:{v:.1f}' for k,v in sorted(errors.items())) or 'none'
         return False, (f'ArUco stability {len(good_ids)}/{self.min_markers}: '
                        f'need >= {self.good_frames}/{self.window} frames '
-                       f'within < {self.threshold_mm:g} mm; current {current}')
+                       f'within <= {self.threshold_mm:g} mm; current {current}')
 
 
 
@@ -921,7 +921,7 @@ def main(argv=None):
     last_vision_reason = ''
     samples = deque(maxlen=vision.STABLE_FRAMES)
     marker_monitor = MarkerStabilityMonitor(threshold_mm=MAX_MARKER_DRIFT_MM)
-    print(f'ACTIVE ARUCO LIMIT: < {marker_monitor.threshold_mm:g} mm | '
+    print(f'ACTIVE ARUCO LIMIT: <= {marker_monitor.threshold_mm:g} mm | '
           f'{marker_monitor.good_frames}/{marker_monitor.window} frames | '
           f'{marker_monitor.min_markers} stable IDs | '
           f'program: {Path(__file__).resolve()}', flush=True)

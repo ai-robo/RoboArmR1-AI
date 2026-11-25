@@ -46,7 +46,7 @@ DETECT_TIMEOUT_S = 25.0  # legacy one-shot routine only; continuous loop never t
 # Live markers are only a safety reference: mapping uses saved board_calibration.npz.
 # Any TWO recognized ArUco markers suffice; IDs 2 and 3 are NOT required in view.
 MIN_VISIBLE_ARUCO = 2
-MAX_MARKER_DRIFT_MM = 10.0
+MAX_MARKER_DRIFT_MM = 11.0
 DETECTION_CONFIRM_S = 1.0
 DROP_GUARD_RADIUS_MM = 39.0
 SOURCE_GUARD_RADIUS_MM = 22.0

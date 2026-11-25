@@ -4,3 +4,4 @@ opencv-contrib-python>=4.8.0
 pyserial>=3.5
 sounddevice>=0.4.6
 vosk>=0.3.45
+soxr>=0.5.0

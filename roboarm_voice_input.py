@@ -249,8 +249,9 @@ def run_voice_input(commands, shutdown, busy, model_path, mic_device, status=Non
         mic = RobotMicrophone(device=mic_device)
         stt = RobotSTT(model_path, mic.sample_rate)
         buffer = SpokenCommandBuffer(silence_s=silence_s)
-        print(f'MIC: PortAudio device #{mic.device}, {mic.sample_rate}Hz, '
-              f'{mic.channels}ch input -> mono PCM16', flush=True)
+        print(f'MIC: PortAudio device #{mic.device}, capture={getattr(mic, "capture_rate", mic.sample_rate)}Hz, '
+              f'{mic.channels}ch -> Vosk={mic.sample_rate}Hz mono PCM16; '
+              f'blocksize={getattr(mic, "blocksize", "unknown")}', flush=True)
         print(f'VOSK: say "Робот, <команда>"; finish by "Выполняй" OR '
               f'{buffer.silence_s:g}s without new recognized words. No wake word = no task.', flush=True)
         if status is not None:
@@ -259,14 +260,24 @@ def run_voice_input(commands, shutdown, busy, model_path, mic_device, status=Non
         # Prevent leftover speech spoken during movement from starting later.
         suspended = busy.is_set()
         queued = False
-        warned_at = 0.0
         with mic:
+            last_audio_loss_epoch = getattr(mic, 'loss_epoch', 0)
             for chunk in mic.chunks(stop=shutdown):
                 now = time.monotonic()
-                if mic.dropped and now - warned_at > 5:
-                    print(f'AUDIO WARNING: software mic queue dropped {mic.dropped} chunks; '
-                          'recognition may lose words', flush=True)
-                    warned_at = now
+                # A dropped PCM chunk can turn a valid instruction into a
+                # different one. Never continue interpreting a broken phrase.
+                if getattr(mic, 'loss_epoch', 0) != last_audio_loss_epoch:
+                    last_audio_loss_epoch = getattr(mic, 'loss_epoch', 0)
+                    skipped = mic.discard_pending()
+                    buffer.reset()
+                    stt.reset()
+                    if not busy.is_set() and not queued:
+                        print('VOICE RESET: input audio was incomplete; '
+                              f'please repeat the command (discarded {skipped} queued chunks)',
+                              flush=True)
+                        if status is not None:
+                            status.update('VOICE RESET', 'Audio overflow: repeat ROBOT + command')
+                    continue
                 # A standalone wake word expires after its own seven-second window.
                 if buffer.wake_expired(now):
                     buffer.reset()

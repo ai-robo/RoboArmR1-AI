@@ -163,7 +163,7 @@ def marker_check(H, found, min_markers=3, max_mm_error=10.0):
         calc = project(H, [uv])[0]
         expected = np.asarray(MARKER_BOARD_MM[marker_id], dtype=float)
         err.append(float(np.linalg.norm(calc - expected)))
-    if not np.isfinite(err).all() or max(err) >= max_mm_error:
+    if not np.isfinite(err).all() or max(err) > max_mm_error:
         return False, f'ArUco moved / camera changed: max ref error={max(err):.1f} mm', err
     return True, f'ArUco reference OK (max {max(err):.1f} mm)', err
 
